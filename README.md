@@ -14,7 +14,7 @@ A network stress testing tool with a GUI inspired by Light Yagami from Death Not
 - Install dependencies: `pip install scapy Pillow`
 
 ## Installation
-1. Clone the repo: `git clone https://github.com/yourusername/ZeroDayFlooder.git`
+1. Clone the repo: `git clone https://github.com/Neok1ra/ddos.git`
 2. Install dependencies: `pip install -r requirements.txt`
 3. Run: `python ZeroDayFlooder.py`
 
