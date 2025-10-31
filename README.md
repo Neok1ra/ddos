@@ -30,6 +30,7 @@ A **fully immersive, manga-panel-styled DDoS simulator** with:
 ## Installation
 
 ```bash
-git clone https://github.com/yourname/deathnote-manga-ddos.git
-cd deathnote-manga-ddos
+
+git clone https://github.com/Neok1ra/ddos.git
+cd ddos
 pip install -r requirements.txt
