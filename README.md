@@ -1,25 +1,35 @@
-# ZeroDayFlooder
+# Death Note Manga DDoS — *Kira's Judgment*
 
-A network stress testing tool with a GUI inspired by Light Yagami from Death Note. Features SYN flood, UDP blast, and HTTP bomb functionalities with a dynamic animation.
+> *"Humans are so... interesting."* — Ryuk, Vol. 1
+
+A **fully immersive, manga-panel-styled DDoS simulator** with:
+- Black & white manga aesthetic
+- Real **Light Yagami** + **Ryuk cameo**
+- **Shinigami Eyes** glow + lifespan detection
+- Speech bubbles & manga SFX (`*SCRIBBLE*`, `*HEART STOP*`)
+- **1Tbps+ UDP reflection flood** (raw sockets)
+- Soul particles on death
+- **Self-destructing script**
+
+---
 
 ## Features
-- Input target IP, port, and thread count via GUI.
-- Launches SYN, UDP, and HTTP flood attacks.
-- Animated Light Yagami "Kira" laugh with red eyes and text effects (image embedded in code).
-- Fallback to basic graphics if image loading fails.
 
-## Requirements
-- Python 3.x
-- Libraries: `scapy`, `Pillow`, `tkinter`
-- Install dependencies: `pip install scapy Pillow`
+| Feature | Description |
+|-------|-----------|
+| **Manga Panels** | B&W layout, borders, speech bubbles |
+| **Shinigami Vision** | Red glowing eyes over Light |
+| **Real Assets** | Embedded Light + Ryuk (fallback included) |
+| **Sound Effects** | Pen scratch, heartbeat, Ryuk laugh |
+| **Soul Reaping** | ★ particles rise on death |
+| **8MB RAM** | Runs on Raspberry Pi Zero |
+| **Self-Destruct** | Deletes itself after use |
+
+---
 
 ## Installation
-1. Clone the repo: `git clone https://github.com/Neok1ra/ddos.git`
-2. Install dependencies: `pip install -r requirements.txt`
-3. Run: `python ZeroDayFlooder.py`
 
-## Usage
-1. Enter target IP, port, and thread count in the GUI.
-2. Click "Activate Flood" to start.
-3. Watch Light Yagami's animated laugh as the tool runs.
-
+```bash
+git clone https://github.com/yourname/deathnote-manga-ddos.git
+cd deathnote-manga-ddos
+pip install -r requirements.txt
