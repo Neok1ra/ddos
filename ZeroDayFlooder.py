@@ -1,7 +1,4 @@
-# DEATH NOTE vΩ - MANGA PANEL IMMERSION
-# FULL MANGA STYLE: Black/White Panels, Speech Bubbles, SFX, Ryuk Cameo
-# EMBEDDED REAL ASSETS: Light Yagami + Ryuk + Sound Effects + Quotes
-# 1Tbps APOCALYPSE | 8MB RAM | Shinigami Eyes | Soul Particles | Self-Destruct
+
 import socket
 import threading
 import random
